@@ -124,8 +124,11 @@ def create_knowledge_base(df):
         error_msg = str(e)
         st.error(f"Error creating knowledge base: {error_msg}")
 
-        # Check if it's an API key error
-        if "api_key" in error_msg.lower() or "openai" in error_msg.lower():
+        # Check for specific error types
+        if "permission" in error_msg.lower() or "readonly" in error_msg.lower():
+            st.warning("This appears to be a database permission issue")
+            st.info("Recommended fixes:\n1. Delete the chroma_db directory: `rm -rf chroma_db`\n2. Ensure the application has write permissions to the current directory")
+        elif "api_key" in error_msg.lower() or "openai" in error_msg.lower():
             st.warning("This appears to be an API key issue")
             import os
             if not os.getenv('OPENAI_API_KEY'):

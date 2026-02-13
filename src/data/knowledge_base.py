@@ -64,16 +64,47 @@ class KnowledgeBase:
         # Split documents if needed
         split_docs = text_splitter.split_documents(self.documents)
 
-        # Clean up old database if it exists
-        if Path(self.persist_directory).exists():
-            shutil.rmtree(self.persist_directory)
+        # Ensure parent directory exists with proper permissions
+        persist_path = Path(self.persist_directory)
+        parent_dir = persist_path.parent
+        parent_dir.mkdir(parents=True, exist_ok=True)
+
+        # Clean up old database completely
+        if persist_path.exists():
+            try:
+                shutil.rmtree(self.persist_directory)
+                print(f"Cleaned up old database at {self.persist_directory}")
+            except PermissionError as e:
+                raise RuntimeError(
+                    f"Cannot delete old database due to permission error: {e}\n"
+                    f"Try manually removing: rm -rf {self.persist_directory}"
+                )
+            except Exception as e:
+                raise RuntimeError(f"Error cleaning up old database: {e}")
+
+        # Create new directory explicitly with proper permissions
+        try:
+            persist_path.mkdir(parents=True, exist_ok=True)
+            print(f"Created database directory at {self.persist_directory}")
+        except Exception as e:
+            raise RuntimeError(f"Cannot create database directory: {e}")
 
         # Create Chroma vector store
-        self.vector_store = Chroma.from_documents(
-            documents=split_docs,
-            embedding=self.embeddings,
-            persist_directory=self.persist_directory
-        )
+        try:
+            self.vector_store = Chroma.from_documents(
+                documents=split_docs,
+                embedding=self.embeddings,
+                persist_directory=self.persist_directory
+            )
+            print(f"Vector store created successfully with {len(split_docs)} documents")
+        except Exception as e:
+            # Clean up on failure
+            if persist_path.exists():
+                try:
+                    shutil.rmtree(self.persist_directory)
+                except:
+                    pass
+            raise RuntimeError(f"Error creating Chroma vector store: {e}")
 
         return self.vector_store
 
